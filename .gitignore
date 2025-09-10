@@ -1,0 +1,9 @@
+.idea
+.vscode
+/.credentials.json
+/.env
+/todos/
+/statsig/
+/shell-snapshots/
+/projects/
+/plugins/
