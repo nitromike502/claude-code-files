@@ -33,125 +33,33 @@ def get_completion_messages():
     ]
 
 
-def get_tts_script_path():
-    """
-    Determine which TTS script to use based on available API keys.
-    Priority order: ElevenLabs > OpenAI > pyttsx3
-    """
-    # Get current script directory and construct utils/tts path
-    script_dir = Path("~/.claude/hooks").expanduser().parent
-    tts_dir = script_dir / "utils" / "tts"
-
-    # Check for ElevenLabs API key (highest priority)
-    if os.getenv('ELEVENLABS_API_KEY'):
-        elevenlabs_script = tts_dir / "elevenlabs_tts.py"
-        if elevenlabs_script.exists():
-            return str(elevenlabs_script)
-
-    # Check for OpenAI API key (second priority)
-    if os.getenv('OPENAI_API_KEY'):
-        openai_script = tts_dir / "openai_tts.py"
-        if openai_script.exists():
-            return str(openai_script)
-
-    # Fall back to pyttsx3 (no API key required)
-    pyttsx3_script = tts_dir / "pyttsx3_tts.py"
-    if pyttsx3_script.exists():
-        return str(pyttsx3_script)
-
-    return None
-
-
-def get_llm_completion_message():
-    """
-    Generate completion message using available LLM services.
-    Priority order: OpenAI > Anthropic > Ollama > fallback to random message
-
-    Returns:
-        str: Generated or fallback completion message
-    """
-    # Get current script directory and construct utils/llm path
-    script_dir = Path(__file__).parent
-    llm_dir = script_dir / "utils" / "llm"
-
-    # Try OpenAI first (highest priority)
-    if os.getenv('OPENAI_API_KEY'):
-        oai_script = llm_dir / "oai.py"
-        if oai_script.exists():
-            try:
-                result = subprocess.run([
-                    "uv", "run", str(oai_script), "--completion"
-                ],
-                capture_output=True,
-                text=True,
-                timeout=10
-                )
-                if result.returncode == 0 and result.stdout.strip():
-                    return result.stdout.strip()
-            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
-                pass
-
-    # Try Anthropic second
-    if os.getenv('ANTHROPIC_API_KEY'):
-        anth_script = llm_dir / "anth.py"
-        if anth_script.exists():
-            try:
-                result = subprocess.run([
-                    "uv", "run", str(anth_script), "--completion"
-                ],
-                capture_output=True,
-                text=True,
-                timeout=10
-                )
-                if result.returncode == 0 and result.stdout.strip():
-                    return result.stdout.strip()
-            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
-                pass
-
-    # Try Ollama third (local LLM)
-    ollama_script = llm_dir / "ollama.py"
-    if ollama_script.exists():
-        try:
-            result = subprocess.run([
-                "uv", "run", str(ollama_script), "--completion"
-            ],
-            capture_output=True,
-            text=True,
-            timeout=10
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                return result.stdout.strip()
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError):
-            pass
-
-    # Fallback to random predefined message
-    messages = get_completion_messages()
-    return random.choice(messages)
-
 def announce_completion():
-    """Announce completion using the best available TTS service."""
+    """Announce completion using TTS service."""
     try:
-        tts_script = get_tts_script_path()
-        if not tts_script:
-            return  # No TTS scripts available
-
-        # Get completion message (LLM-generated or fallback)
-        completion_message = get_llm_completion_message()
-
-        # Call the TTS script with the completion message
+        # Use fixed TTS path from global instructions
+        completion_message = random.choice(get_completion_messages())
         subprocess.run([
             "/mnt/c/Users/nitro/.local/bin/uv.exe", "run", "--script", "C:\\Users\\nitro\\elevenlabs_tts.py", "--voice", "bellab", completion_message
         ],
         capture_output=True,  # Suppress output
         timeout=10  # 10-second timeout
         )
-
     except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
         # Fail silently if TTS encounters issues
         pass
     except Exception:
         # Fail silently for any other errors
         pass
+
+
+def find_project_root():
+    """Find the project root by looking for .claude directory."""
+    current = Path.cwd().resolve()
+    for parent in [current] + list(current.parents):
+        if (parent / '.claude').exists():
+            return parent
+    # Fallback to current directory
+    return current
 
 
 def main():
@@ -170,14 +78,15 @@ def main():
         session_id = input_data.get("session_id", "")
         stop_hook_active = input_data.get("stop_hook_active", False)
 
-        # Ensure log directory exists
+        # Find project root and ensure log directory exists
+        project_root = find_project_root()
         current_date = datetime.now().strftime("%Y%m%d")
-        log_dir = Path('.claude/logs')
-        os.makedirs(log_dir, exist_ok=True)
-        log_path = os.path.join(log_dir, "stop.json")
+        log_dir = project_root / '.claude' / 'logs'
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / "stop.json"
 
         # Read existing log data or initialize empty list
-        if os.path.exists(log_path):
+        if log_path.exists():
             with open(log_path, 'r') as f:
                 try:
                     log_data = json.load(f)
@@ -210,7 +119,6 @@ def main():
                                     pass  # Skip invalid lines
 
                     # Create unique filename based on session_id and timestamp
-                    from datetime import datetime
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     session_short = session_id[:8] if len(session_id) >= 8 else session_id
                     chat_filename = f'transcript_{session_short}_{timestamp}.json'
@@ -222,8 +130,14 @@ def main():
 
                     with open(chat_file, 'w') as f:
                         json.dump(chat_data, f, indent=2)
-                except Exception:
-                    pass  # Fail silently
+                except Exception as e:
+                    # Log errors but don't fail the hook
+                    try:
+                        error_log = log_dir / 'hook_errors.log'
+                        with open(error_log, 'a') as f:
+                            f.write(f"{datetime.now().isoformat()}: stop.py transcript error: {e}\n")
+                    except:
+                        pass
 
         # Announce completion via TTS (only if --notify flag is set)
         if args.notify:
@@ -231,11 +145,29 @@ def main():
 
         sys.exit(0)
 
-    except json.JSONDecodeError:
-        # Handle JSON decode errors gracefully
+    except json.JSONDecodeError as e:
+        # Log JSON decode errors to help with debugging
+        try:
+            project_root = find_project_root()
+            error_log = project_root / '.claude' / 'logs' / 'hook_errors.log'
+            error_log.parent.mkdir(parents=True, exist_ok=True)
+            with open(error_log, 'a') as f:
+                f.write(f"{datetime.now().isoformat()}: stop.py JSON decode error: {e}\n")
+        except:
+            pass  # Still fail silently if we can't log
         sys.exit(0)
-    except Exception:
-        # Handle any other errors gracefully
+    except Exception as e:
+        # Log other errors to help with debugging
+        try:
+            project_root = find_project_root()
+            error_log = project_root / '.claude' / 'logs' / 'hook_errors.log'
+            error_log.parent.mkdir(parents=True, exist_ok=True)
+            with open(error_log, 'a') as f:
+                f.write(f"{datetime.now().isoformat()}: stop.py error: {e}\n")
+                import traceback
+                f.write(traceback.format_exc() + "\n")
+        except:
+            pass  # Still fail silently if we can't log
         sys.exit(0)
 
 

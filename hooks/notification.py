@@ -66,7 +66,7 @@ def get_completion_messages():
 def get_tts_script_path():
     """
     Determine which TTS script to use based on available API keys.
-    Priority order: ElevenLabs > OpenAI > pyttsx3
+    Priority order: ElevenLabs > Gemini > OpenAI > pyttsx3
     """
     # Get current script directory and construct utils/tts path
     script_dir = Path('~/.claude/hooks').expanduser()
@@ -78,7 +78,14 @@ def get_tts_script_path():
         if elevenlabs_script.exists():
             return str(elevenlabs_script)
 
-    # Check for OpenAI API key (second priority)
+    # Check for Google Cloud credentials (second priority)
+    if (os.getenv('GOOGLE_APPLICATION_CREDENTIALS') or
+        os.getenv('GOOGLE_CLOUD_PROJECT')):
+        gemini_script = tts_dir / "gemini_tts.py"
+        if gemini_script.exists():
+            return str(gemini_script)
+
+    # Check for OpenAI API key (third priority)
     if os.getenv('OPENAI_API_KEY'):
         openai_script = tts_dir / "openai_tts.py"
         if openai_script.exists():

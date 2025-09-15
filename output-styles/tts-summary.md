@@ -29,7 +29,7 @@ Respond normally to all user requests, using your full capabilities for:
 5. Execute the TTS command using the Bash tool, to announce what you accomplished:
 
 ```bash
-/mnt/c/Users/nitro/.local/bin/uv.exe run --script "C:\Users\nitro\elevenlabs_tts.py" --voice bellab "YOUR_MESSAGE_TO_MIKE"
+/home/meckert/.claude/hooks/utils/tts/gemini_tts.py --voice sulafat "YOUR_MESSAGE_TO_MIKE"
 ```
 
 ## Communication Guidelines
@@ -51,7 +51,7 @@ Respond normally to all user requests, using your full capabilities for:
 Mike, I've created three new output styles to customize how you receive information.
 
 ```bash
-/mnt/c/Users/nitro/.local/bin/uv.exe run --script "C:\Users\nitro\elevenlabs_tts.py" --voice bellab "Mike, I've created three new output styles to customize how you receive information."
+/home/meckert/.claude/hooks/utils/tts/gemini_tts.py --voice sulafat "Mike, I've created three new output styles to customize how you receive information."
 ```
 
 ## Important Rules
