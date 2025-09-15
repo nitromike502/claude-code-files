@@ -61,6 +61,7 @@ def main():
     parser.add_argument('--voice', choices=['aoede', 'puck', 'charon', 'kore', 'fenrir', 'leda', 'orus', 'zephyr', 'sulafat'],
                        help='Voice name to use')
     parser.add_argument('--voice-id', help='Specific voice ID to use (e.g., en-US-Chirp3-HD-Sulafat)')
+    parser.add_argument('--stdin', action='store_true', help='Read text from stdin instead of arguments')
     args = parser.parse_args()
 
     # Check for required authentication
@@ -103,9 +104,25 @@ def main():
         print("🎙️  Google Gemini Chirp 3 HD TTS")
         print("=" * 40)
 
-        # Get text from arguments or use default
-        if args.text:
+        # Get text from stdin, arguments, or use default
+        if args.stdin:
+            # Read from stdin
+            try:
+                text = sys.stdin.read().strip()
+                if not text:
+                    text = "The first move is what sets everything in motion."
+            except Exception:
+                text = "The first move is what sets everything in motion."
+        elif args.text:
             text = " ".join(args.text)
+        elif not sys.stdin.isatty():
+            # Automatically detect piped input even without --stdin flag
+            try:
+                text = sys.stdin.read().strip()
+                if not text:
+                    text = "The first move is what sets everything in motion."
+            except Exception:
+                text = "The first move is what sets everything in motion."
         else:
             text = "The first move is what sets everything in motion."
 
