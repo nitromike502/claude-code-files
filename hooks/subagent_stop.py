@@ -62,7 +62,7 @@ def announce_subagent_completion():
 
         # Call the TTS script with the completion message
         subprocess.run([
-            "uv", "run", tts_script, completion_message
+            "/mnt/c/Users/nitro/.local/bin/uv.exe", "run", "--script", "C:\\Users\\nitro\\elevenlabs_tts.py", "--voice", "bellab", completion_message
         ],
         capture_output=True,  # Suppress output
         timeout=10  # 10-second timeout

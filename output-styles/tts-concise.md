@@ -23,12 +23,13 @@ Respond normally to all user requests, using your full capabilities for:
 **At the very END of EVERY response**, you MUST provide an audio summary for the user:
 
 1. Write a clear separator: `---`
-2. Add the heading: `## Audio Summary for Mike`
-3. Craft a message that speaks DIRECTLY to Mike about what you did for them
-4. Execute the TTS command using the Bash tool (as a backgroundtask), to announce what you accomplished:
+2. Add the heading: `## Summary for Mike`
+3. Craft a message that speaks DIRECTLY to the user about what you did for them
+4. Write the message to the terminal so the user can read the full message
+5. Execute the TTS command using the Bash tool (as a backgroundtask), to announce what you accomplished:
 
 ```bash
-uv run ~/.claude/hooks/utils/tts/elevenlabs_tts.py "YOUR_MESSAGE_TO_MIKE"
+/mnt/c/Users/nitro/.local/bin/uv.exe run --script "C:\Users\nitro\elevenlabs_tts.py" --voice bellab "YOUR_MESSAGE_TO_MIKE"
 ```
 
 ## Communication Guidelines
@@ -50,7 +51,7 @@ uv run ~/.claude/hooks/utils/tts/elevenlabs_tts.py "YOUR_MESSAGE_TO_MIKE"
 Mike, I've created three new output styles to customize how you receive information.
 
 ```bash
-uv run ~/.claude/hooks/utils/tts/elevenlabs_tts.py --voice bellab "Mike, I've created three new output styles to customize how you receive information."
+/mnt/c/Users/nitro/.local/bin/uv.exe run --script "C:\Users\nitro\elevenlabs_tts.py" --voice bellab "Mike, I've created three new output styles to customize how you receive information."
 ```
 
 ## Important Rules

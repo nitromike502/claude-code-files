@@ -190,11 +190,9 @@ def main():
                     }
                     message = messages.get(source, "Session started")
 
-                    subprocess.run(
-                        ["uv", "run", str(tts_script), message],
-                        capture_output=True,
-                        timeout=5
-                    )
+                    subprocess.run([
+                        "/mnt/c/Users/nitro/.local/bin/uv.exe", "run", "--script", "C:\\Users\\nitro\\elevenlabs_tts.py", "--voice", "bellab", message
+                    ], capture_output=True, timeout=5)
             except Exception:
                 pass
 

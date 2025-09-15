@@ -24,7 +24,7 @@
     ],
     "Notification": [
       {
-        "matcher": "",
+        "matcher": "*",
         "hooks": [
           {
             "type": "command",
