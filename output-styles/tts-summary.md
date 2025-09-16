@@ -29,7 +29,7 @@ Respond normally to all user requests, using your full capabilities for:
 5. Execute the TTS command using the Bash tool, to announce what you accomplished:
 
 ```bash
-/home/meckert/.claude/hooks/utils/tts/gemini_tts.py --voice sulafat "YOUR_MESSAGE_TO_MIKE"
+GOOGLE_APPLICATION_CREDENTIALS="C:\Users\nitro\.claude\hooks\utils\tts\gen-lang-client-0718398491-6186cfe2ae0c.local.json" /mnt/c/Users/nitro/.local/bin/uv.exe run --script "/home/meckert/.claude/hooks/utils/tts/gemini_tts.py" --voice sulafat --speed 1.5 "YOUR_MESSAGE_TO_MIKE"
 ```
 
 ## Communication Guidelines
@@ -51,7 +51,7 @@ Respond normally to all user requests, using your full capabilities for:
 Mike, I've created three new output styles to customize how you receive information.
 
 ```bash
-/home/meckert/.claude/hooks/utils/tts/gemini_tts.py --voice sulafat "Mike, I've created three new output styles to customize how you receive information."
+GOOGLE_APPLICATION_CREDENTIALS="C:\Users\nitro\.claude\hooks\utils\tts\gen-lang-client-0718398491-6186cfe2ae0c.local.json" /mnt/c/Users/nitro/.local/bin/uv.exe run --script "/home/meckert/.claude/hooks/utils/tts/gemini_tts.py" --voice sulafat --speed 1.5 "Mike, I've created three new output styles to customize how you receive information."
 ```
 
 ## Important Rules

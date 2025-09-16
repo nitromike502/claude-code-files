@@ -15,6 +15,61 @@ import tempfile
 from pathlib import Path
 from dotenv import load_dotenv
 
+# Fix Windows Unicode encoding issues
+if sys.platform == "win32":
+    import codecs
+    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
+    sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+
+def setup_google_credentials():
+    """
+    Set up Google Cloud credentials for both WSL and Windows environments.
+    Converts WSL paths to Windows paths when running from Windows executable.
+    """
+    google_creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+
+    if google_creds_path:
+        # Check if the current path exists
+        if os.path.exists(google_creds_path):
+            return google_creds_path
+
+        # If WSL path doesn't exist from Windows context, try converting to Windows path
+        if google_creds_path.startswith('/'):
+            # Convert WSL path to Windows UNC path
+            windows_path = google_creds_path.replace('/', '\\')
+            windows_path = f"\\\\wsl.localhost\\Ubuntu{windows_path}"
+
+            # Set the converted path in environment
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = windows_path
+
+            # Verify the converted path exists
+            if os.path.exists(windows_path):
+                print(f"SUCCESS: Using converted Windows credential path: {windows_path}")
+                return windows_path
+            else:
+                print(f"WARNING: Credential file not found at WSL path: {google_creds_path}")
+                print(f"WARNING: Credential file not found at Windows path: {windows_path}")
+                return None
+
+        # If Windows path doesn't exist, try converting to WSL path
+        elif '\\\\wsl.localhost\\Ubuntu\\' in google_creds_path:
+            # Convert Windows UNC path to WSL path
+            wsl_path = google_creds_path.replace('\\\\wsl.localhost\\Ubuntu\\', '/')
+            wsl_path = wsl_path.replace('\\', '/')
+
+            # Set the converted path in environment
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = wsl_path
+
+            # Verify the converted path exists
+            if os.path.exists(wsl_path):
+                return wsl_path
+            else:
+                print(f"WARNING: Credential file not found at Windows path: {google_creds_path}")
+                print(f"WARNING: Credential file not found at WSL path: {wsl_path}")
+                return None
+
+    return google_creds_path
+
 def main():
     """
     Google Gemini Chirp 3 HD TTS Script
@@ -27,6 +82,7 @@ def main():
     - ./gemini_tts.py "Your custom text"                     # Uses provided text with default voice
     - ./gemini_tts.py "Text" --voice sulafat                 # Uses Sulafat voice
     - ./gemini_tts.py "Text" --voice-id en-US-Chirp3-HD-Kore # Uses specific voice ID
+    - ./gemini_tts.py "Text" --speed 1.5                     # Uses 1.5x speaking rate
 
     Available voice names: aoede, puck, charon, kore, fenrir, leda, orus, zephyr, sulafat
     Environment variable: GEMINI_VOICE (voice name or full voice ID)
@@ -36,6 +92,7 @@ def main():
     - High-quality Chirp 3 HD voice synthesis
     - Natural, expressive speech generation
     - Multiple voice personalities
+    - Adjustable speaking rate (0.25x to 2.0x speed)
     - Support for 40+ languages
     - Cost-effective for production use
     """
@@ -61,12 +118,19 @@ def main():
     parser.add_argument('--voice', choices=['aoede', 'puck', 'charon', 'kore', 'fenrir', 'leda', 'orus', 'zephyr', 'sulafat'],
                        help='Voice name to use')
     parser.add_argument('--voice-id', help='Specific voice ID to use (e.g., en-US-Chirp3-HD-Sulafat)')
+    parser.add_argument('--speed', type=float, default=1.0, help='Speaking rate (0.25-2.0, default: 1.0)')
     parser.add_argument('--stdin', action='store_true', help='Read text from stdin instead of arguments')
     args = parser.parse_args()
 
+    # Validate speed parameter
+    if not (0.25 <= args.speed <= 2.0):
+        print("❌ Error: Speed must be between 0.25 and 2.0")
+        sys.exit(1)
+
+    # Set up Google Cloud credentials for both WSL and Windows environments
+    google_creds_path = setup_google_credentials()
+
     # Check for required authentication
-    # Google Cloud uses Application Default Credentials or GOOGLE_APPLICATION_CREDENTIALS
-    google_creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
     if not google_creds_path and not os.getenv('GOOGLE_CLOUD_PROJECT'):
         # Check if we can use Application Default Credentials
         try:
@@ -97,9 +161,30 @@ def main():
     try:
         from google.cloud import texttospeech
         import pygame
+        from google.oauth2 import service_account
 
-        # Initialize client
-        client = texttospeech.TextToSpeechClient()
+        # Initialize client with explicit credentials
+        # Try multiple credential paths
+        credentials_paths = [
+            "C:\\Users\\nitro\\.claude\\hooks\\utils\\tts\\gen-lang-client-0718398491-6186cfe2ae0c.local.json",
+            "/mnt/c/Users/nitro/.claude/hooks/utils/tts/gen-lang-client-0718398491-6186cfe2ae0c.local.json",
+            "/home/meckert/.claude/hooks/utils/tts/gen-lang-client-0718398491-6186cfe2ae0c.local.json"
+        ]
+
+        client = None
+        for cred_path in credentials_paths:
+            try:
+                if os.path.exists(cred_path):
+                    credentials = service_account.Credentials.from_service_account_file(cred_path)
+                    client = texttospeech.TextToSpeechClient(credentials=credentials)
+                    print(f"✅ Using credentials from: {cred_path}")
+                    break
+            except Exception as e:
+                continue
+
+        if not client:
+            # Fall back to default client
+            client = texttospeech.TextToSpeechClient()
 
         print("🎙️  Google Gemini Chirp 3 HD TTS")
         print("=" * 40)
@@ -155,6 +240,7 @@ def main():
 
         print(f"🎯 Text: {text}")
         print(f"🎤 Voice: {voice_name}")
+        print(f"⚡ Speed: {args.speed}x")
         print("🔊 Generating and playing...")
 
         try:
@@ -169,7 +255,8 @@ def main():
 
             # Set up audio configuration
             audio_config = texttospeech.AudioConfig(
-                audio_encoding=texttospeech.AudioEncoding.MP3
+                audio_encoding=texttospeech.AudioEncoding.MP3,
+                speaking_rate=args.speed
             )
 
             # Generate speech
@@ -193,8 +280,17 @@ def main():
             while pygame.mixer.music.get_busy():
                 pygame.time.wait(100)
 
-            # Clean up temporary file
-            os.unlink(temp_audio_path)
+            # Clean up
+            pygame.mixer.quit()
+            try:
+                os.unlink(temp_audio_path)
+            except (OSError, PermissionError):
+                # File might still be in use, try again after a short delay
+                pygame.time.wait(500)
+                try:
+                    os.unlink(temp_audio_path)
+                except (OSError, PermissionError):
+                    pass  # Leave the temp file if we can't delete it
 
             print("✅ Playback complete!")
 
@@ -211,6 +307,7 @@ def main():
                         language_code="en-US",
                         name="en-US-Chirp3-HD-Charon"  # Fallback to Charon
                     )
+                    # Use the same audio config with speed for fallback
                     response = client.synthesize_speech(
                         input=synthesis_input,
                         voice=voice,
@@ -224,7 +321,17 @@ def main():
                     pygame.mixer.music.play()
                     while pygame.mixer.music.get_busy():
                         pygame.time.wait(100)
-                    os.unlink(temp_audio_path)
+
+                    # Clean up
+                    pygame.mixer.quit()
+                    try:
+                        os.unlink(temp_audio_path)
+                    except (OSError, PermissionError):
+                        pygame.time.wait(500)
+                        try:
+                            os.unlink(temp_audio_path)
+                        except (OSError, PermissionError):
+                            pass
                     print("✅ Playback complete with fallback voice!")
                 except Exception as fallback_error:
                     print(f"❌ Error with fallback voice: {fallback_error}")
