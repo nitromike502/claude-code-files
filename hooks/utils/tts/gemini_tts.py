@@ -85,8 +85,13 @@ def main():
     - ./gemini_tts.py "Text" --speed 1.5                     # Uses 1.5x speaking rate
 
     Available voice names: aoede, puck, charon, kore, fenrir, leda, orus, zephyr, sulafat
-    Environment variable: GEMINI_VOICE (voice name or full voice ID)
-    Environment file: .claude/.env (preferred) or .env (fallback)
+    Environment variables (set in .claude/.env or .env file):
+    - GEMINI_VOICE: Default voice (voice name or full voice ID)
+    - GEMINI_SPEED: Default speaking rate (0.25-2.0, default: 1.0)
+
+    Note: Command-line arguments take priority over environment variables.
+    Environment variables must be set in .env files, not passed inline when
+    running cross-platform (Windows uv.exe from WSL won't inherit bash env vars).
 
     Features:
     - High-quality Chirp 3 HD voice synthesis
@@ -97,7 +102,7 @@ def main():
     - Cost-effective for production use
     """
 
-    # Load environment variables
+    # Load environment variables from .env files
     # First try .claude/.env, then fall back to current directory .env
     # Find the .claude directory by going up from the script location
     current = Path(__file__).parent
@@ -118,9 +123,29 @@ def main():
     parser.add_argument('--voice', choices=['aoede', 'puck', 'charon', 'kore', 'fenrir', 'leda', 'orus', 'zephyr', 'sulafat'],
                        help='Voice name to use')
     parser.add_argument('--voice-id', help='Specific voice ID to use (e.g., en-US-Chirp3-HD-Sulafat)')
-    parser.add_argument('--speed', type=float, default=1.0, help='Speaking rate (0.25-2.0, default: 1.0)')
+    parser.add_argument('--speed', type=float, help='Speaking rate (0.25-2.0, default: 1.0 or GEMINI_SPEED env var)')
     parser.add_argument('--stdin', action='store_true', help='Read text from stdin instead of arguments')
     args = parser.parse_args()
+
+    # Apply environment variable defaults if arguments not provided
+    if not args.voice and not args.voice_id:
+        env_voice = os.getenv('GEMINI_VOICE')
+        if env_voice:
+            if env_voice.lower() in ['aoede', 'puck', 'charon', 'kore', 'fenrir', 'leda', 'orus', 'zephyr', 'sulafat']:
+                args.voice = env_voice.lower()
+            else:
+                args.voice_id = env_voice
+
+    if args.speed is None:
+        env_speed = os.getenv('GEMINI_SPEED')
+        if env_speed:
+            try:
+                args.speed = float(env_speed)
+            except ValueError:
+                print(f"⚠️  Invalid GEMINI_SPEED value: {env_speed}, using default 1.0")
+                args.speed = 1.0
+        else:
+            args.speed = 1.0
 
     # Validate speed parameter
     if not (0.25 <= args.speed <= 2.0):
@@ -216,23 +241,13 @@ def main():
         voice_name = "default"
 
         if args.voice_id:
-            # Use specific voice ID from argument
+            # Use specific voice ID from argument or environment
             voice_id = args.voice_id
             voice_name = f"custom ({voice_id})"
         elif args.voice:
-            # Use voice name from argument
+            # Use voice name from argument or environment
             voice_id = voice_mapping[args.voice]
             voice_name = args.voice
-        elif os.getenv('GEMINI_VOICE'):
-            # Use voice from environment variable
-            env_voice = os.getenv('GEMINI_VOICE').lower()
-            if env_voice in voice_mapping:
-                voice_id = voice_mapping[env_voice]
-                voice_name = env_voice
-            else:
-                # Assume it's a custom voice ID
-                voice_id = env_voice
-                voice_name = f"env custom ({voice_id})"
         else:
             # Default to Sulafat voice as requested
             voice_id = voice_mapping['sulafat']

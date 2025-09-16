@@ -7,3 +7,6 @@
 /shell-snapshots/
 /projects/
 /plugins/
+
+*.local.*
+*/**/*.local.*
