@@ -7,6 +7,6 @@
 /shell-snapshots/
 /projects/
 /plugins/
-
+db.sql
 *.local.*
 */**/*.local.*
